@@ -1,0 +1,117 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "The desired account is already configured"
+        },
+        "error": {
+            "login_code_invalid": "Invalid code",
+            "login_code_required": "Code required",
+            "login_failed": "Failed",
+            "login_success": "Success",
+            "login_too_many_attempts": "Too many attempts",
+            "update_failed": "Update failed"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "email": "Email",
+                    "password": "Password"
+                },
+                "description": "Enter the email address and password associated with your account.",
+                "title": "Login to Smart Cocoon account"
+            },
+            "systems": {
+                "data": {
+                    "systems": "Systems"
+                },
+                "description": "Select the desired system(s) to configure.",
+                "title": "Select system(s)"
+            },
+            "fans": {
+                "data": {
+                    "fans": "Fans"
+                },
+                "description": "System: {system_name}\n\nA new device entry and all applicable entities will be created within Home Assistant for each selected device. Individual entities can then be disabled as desired.",
+                "title": "Select fan(s) within the system"
+            },
+            "advanced": {
+                "data": {
+                    "save_responses": "Save server responses to custom_components/smartcocoon/api/responses",
+                    "scan_interval": "Polling interval (seconds)",
+                    "timeout": "Polling timeout (seconds)"
+                },
+                "description": "Server responses can be saved to a file for debugging and development support.\n\nPolling interval and timeout can be adjusted if errors are encountered.",
+                "title": "Advanced options"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "systems": {
+                "data": {
+                    "systems": "Systems"
+                },
+                "description": "Select the desired system(s) to configure.",
+                "title": "Select system(s)"
+            },
+            "fans": {
+                "data": {
+                    "fans": "Fans"
+                },
+                "description": "System: {system_name}\n\nA new device entry and all applicable entities will be created within Home Assistant for each selected device. Individual entities can then be disabled as desired.\n\nDeselecting a device will delete that device entry and all associated entities.",
+                "title": "Select fan(s) within the system"
+            },
+            "advanced": {
+                "data": {
+                    "save_responses": "Save server responses to custom_components/smartcocoon/api/responses",
+                    "scan_interval": "Polling interval (seconds)",
+                    "timeout": "Polling timeout (seconds)"
+                },
+                "description": "Server responses can be saved to a file for debugging and development support.\n\nPolling interval and timeout can be adjusted if errors are encountered.",
+                "title": "Advanced options"
+            }
+        }
+    },
+    "entity": {
+        "fan": {
+            "all": {
+                "state_attributes": {
+                    "preset_mode": {
+                        "state": {
+                            "auto": "Auto",
+                            "eco": "Eco"
+                        }
+                    },
+                    "preset_modes": {
+                        "state": {
+                            "auto": "Auto",
+                            "eco": "Eco"
+                        }
+                    }
+                }
+            }
+        },
+        "select": {
+            "all": {
+                "state": {
+                    "8_pct": "8%",
+                    "16_pct": "16%",
+                    "25_pct": "25%",
+                    "33_pct": "33% (Default)",
+                    "41_pct": "41%",
+                    "50_pct": "50%",
+                    "58_pct": "58%",
+                    "66_pct": "66%",
+                    "75_pct": "75%",
+                    "83_pct": "83%",
+                    "91_pct": "91%",
+                    "100_pct": "100%",
+                    "auto": "Auto",
+                    "eco": "Eco",
+                    "always_off": "Always Off",
+                    "always_on": "Always On"
+                }
+            }
+        }
+    }
+}
