@@ -22,7 +22,11 @@ class System(object):
 
     @property
     def name_location(self) -> str:
-        return f"{self.name} ({self.location_city}, {self.location_state})"
+        if self.location_city and self.location_state:
+            return f"{self.name} ({self.location_city}, {self.location_state})"
+        elif self.location_postal_code:
+            return f"{self.name} ({self.location_postal_code})"
+        return self.name
 
     @property
     def user_id(self) -> int | None:

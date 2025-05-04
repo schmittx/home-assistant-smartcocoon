@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import logging
-import math
 
 from .const import (
-    METHOD_PUT,
+    DEFAULT_FAN_NAME,
     FAN_MODE_AUTO,
     FAN_MODE_ECO,
     FAN_MODE_OFF,
     FAN_MODE_ON,
     FAN_MODES,
+    METHOD_PUT,
     MODEL_MAP,
     MODEL_UNKNOWN,
     SPEED_LEVEL_MAP,
@@ -158,6 +158,16 @@ class Fan(object):
     @property
     def mqtt_username(self) -> str | None:
         return self.data.get("mqtt_username")
+
+    @property
+    def name(self) -> str:
+        if name := self.data.get("name"):
+            return name
+        return f"{DEFAULT_FAN_NAME} ({self.fan_id})"
+
+    @property
+    def name_location(self) -> str:
+        return f"{self.name} ({self.room.name})"
 
     @property
     def room_id(self) -> int | None:

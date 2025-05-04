@@ -32,7 +32,7 @@ class SmartCocoonBinarySensorEntityDescription(BinarySensorEntityDescription):
 BINARY_SENSOR_DESCRIPTIONS: list[SmartCocoonBinarySensorEntityDescription] = [
     SmartCocoonBinarySensorEntityDescription(
         key="fan_on",
-        name="Fan Active",
+        name="Active",
         device_class=BinarySensorDeviceClass.RUNNING,
     ),
 ]

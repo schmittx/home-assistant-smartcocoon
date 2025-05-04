@@ -28,13 +28,13 @@ class SmartCocoonSelectEntityDescription(SelectEntityDescription):
 SELECT_DESCRIPTIONS: list[SmartCocoonSelectEntityDescription] = [
     SmartCocoonSelectEntityDescription(
         key="mode",
-        name="Fan Mode",
+        name="Mode",
         options="mode_options",
         icon="mdi:list-box",
     ),
     SmartCocoonSelectEntityDescription(
         key="speed_level_pct",
-        name="Fan Speed",
+        name="Speed",
         options="speed_level_pct_options",
         icon="mdi:speedometer",
     ),

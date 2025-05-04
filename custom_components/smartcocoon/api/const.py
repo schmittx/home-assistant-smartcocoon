@@ -58,3 +58,5 @@ SPEED_LEVEL_MAP = {
     11: SPEED_LEVEL_91,
     12: SPEED_LEVEL_100,
 }
+
+DEFAULT_FAN_NAME = "Register Booster Fan"

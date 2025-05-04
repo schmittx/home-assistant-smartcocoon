@@ -166,7 +166,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if system.id == self.user_input[CONF_SYSTEMS][self.index]:
                     for room in system.rooms:
                         for fan in room.fans:
-                            if fan.fan_id_location in user_input[CONF_FANS]:
+                            if fan.name_location in user_input[CONF_FANS]:
                                 self.user_input[CONF_FANS].append(fan.id)
                     self.index += 1
 
@@ -178,7 +178,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         for system in self.response:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                fan_names = [fan.fan_id_location for room in system.rooms for fan in room.fans]
+                fan_names = [fan.name_location for room in system.rooms for fan in room.fans]
 
                 if not fan_names:
                     self.index += 1
@@ -296,7 +296,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             for system in self.coordinator.data:
                 if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                    self.user_input[CONF_FANS].extend([fan.id for room in system.rooms for fan in room.fans if fan.fan_id_location in user_input[CONF_FANS]])
+                    self.user_input[CONF_FANS].extend([fan.id for room in system.rooms for fan in room.fans if fan.name_location in user_input[CONF_FANS]])
                     self.index += 1
 
         if self.index == len(self.user_input[CONF_SYSTEMS]):
@@ -308,8 +308,8 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
 
         for system in self.coordinator.data:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                conf_fans = [fan.fan_id_location for room in system.rooms for fan in room.fans if fan.id in self.options.get(CONF_FANS, self.data[CONF_FANS])]
-                fan_names = [fan.fan_id_location for room in system.rooms for fan in room.fans]
+                conf_fans = [fan.name_location for room in system.rooms for fan in room.fans if fan.id in self.options.get(CONF_FANS, self.data[CONF_FANS])]
+                fan_names = [fan.name_location for room in system.rooms for fan in room.fans]
 
                 return self.async_show_form(
                     step_id="fans",

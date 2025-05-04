@@ -38,7 +38,6 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DEVICE_MANUFACTURER,
-    DEVICE_NAME,
     DOMAIN,
     UNDO_UPDATE_LISTENER,
 )
@@ -194,7 +193,7 @@ class SmartCocoonEntity(CoordinatorEntity):
             identifiers={(DOMAIN, self.fan.id)},
             manufacturer=DEVICE_MANUFACTURER,
             model=self.fan.model_name,
-            name=f"{DEVICE_NAME} ({self.fan.fan_id})",
+            name=self.fan.name,
             suggested_area=self.room.name,
             sw_version=self.fan.firmware_version,
         )
