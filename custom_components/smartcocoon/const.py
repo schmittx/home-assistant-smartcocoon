@@ -1,4 +1,5 @@
 """Constants used by the SmartCocoon integration."""
+
 CONF_ACCESS_TOKEN = "access_token"
 CONF_CLIENT = "client"
 CONF_FANS = "fans"

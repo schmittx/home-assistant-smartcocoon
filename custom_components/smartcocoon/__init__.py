@@ -1,16 +1,13 @@
 """The SmartCocoon integration."""
+
 from __future__ import annotations
 
-import async_timeout
+from asyncio import timeout
 from datetime import timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_EMAIL,
-    CONF_SCAN_INTERVAL,
-    Platform,
-)
+from homeassistant.const import CONF_EMAIL, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import EntityDescription
@@ -28,8 +25,8 @@ from .const import (
     CONF_ACCESS_TOKEN,
     CONF_CLIENT,
     CONF_FANS,
-    CONF_SYSTEMS,
     CONF_SAVE_RESPONSES,
+    CONF_SYSTEMS,
     CONF_TIMEOUT,
     CONFIGURATION_URL,
     DATA_COORDINATOR,
@@ -66,16 +63,19 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         config_entry_id=config_entry.entry_id,
     )
     for device_entry in device_entries:
-        orphan_identifiers: list[bool] = []
-        for device_identifier in device_entry.identifiers:
-            orphan_identifiers.append(bool(device_identifier not in conf_identifiers))
+        orphan_identifiers = [
+            bool(device_identifier not in conf_identifiers)
+            for device_identifier in device_entry.identifiers
+        ]
         if all(orphan_identifiers):
             device_registry.async_remove_device(device_entry.id)
 
     api = SmartCocoonAPI(
         access_token=data[CONF_ACCESS_TOKEN],
         client=data[CONF_CLIENT],
-        save_location=DEFAULT_SAVE_LOCATION if options.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES) else None,
+        save_location=DEFAULT_SAVE_LOCATION
+        if options.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES)
+        else None,
         uid=data[CONF_EMAIL],
     )
 
@@ -86,21 +86,27 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         so entities can quickly look up their data.
         """
         try:
-            async with async_timeout.timeout(options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)):
+            async with timeout(
+                options.get(CONF_TIMEOUT, data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))
+            ):
                 return await hass.async_add_executor_job(api.update, conf_systems)
         except SmartCocoonException as exception:
-            raise UpdateFailed("Error communicating with API, Status: {}, Error Name: {}, Error Message: {}").format(
+            raise UpdateFailed(
+                "Error communicating with API, Status: {}, Error Name: {}, Error Message: {}"
+            ).format(
                 exception.status_code,
                 exception.name,
                 exception.message,
-            )
+            ) from exception
 
     coordinator = DataUpdateCoordinator(
         hass=hass,
         logger=_LOGGER,
         name=f"SmartCocoon ({data[CONF_EMAIL]})",
         update_method=async_update_data,
-        update_interval=timedelta(seconds=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
+        update_interval=timedelta(
+            seconds=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        ),
     )
     await coordinator.async_refresh()
 
@@ -139,13 +145,13 @@ class SmartCocoonEntity(CoordinatorEntity):
     """Representation of a SmartCocoon entity."""
 
     def __init__(
-            self,
-            coordinator: DataUpdateCoordinator,
-            system_id: int,
-            room_id: int,
-            fan_id: int,
-            entity_description: EntityDescription = None,
-        ) -> None:
+        self,
+        coordinator: DataUpdateCoordinator,
+        system_id: int,
+        room_id: int,
+        fan_id: int,
+        entity_description: EntityDescription = None,
+    ) -> None:
         """Initialize the device."""
         super().__init__(coordinator)
         self.system_id = system_id
@@ -213,4 +219,3 @@ class SmartCocoonEntity(CoordinatorEntity):
         if key := self.entity_description.key:
             return f"{unique_id}-{key}"
         return unique_id
-

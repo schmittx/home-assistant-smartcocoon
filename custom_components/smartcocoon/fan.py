@@ -1,4 +1,5 @@
 """Support for SmartCocoon fan entities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,14 +17,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SmartCocoonEntity
 from .api.const import FAN_MODE_AUTO, FAN_MODE_ECO
-from .const import (
-    CONF_FANS,
-    CONF_SYSTEMS,
-    DATA_COORDINATOR,
-    DOMAIN,
-)
+from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
 
 @dataclass
 class SmartCocoonFanEntityDescription(FanEntityDescription):
@@ -45,20 +42,20 @@ async def async_setup_entry(
     for system in coordinator.data:
         if system.id in entry[CONF_SYSTEMS]:
             for room in system.rooms:
-                for fan in room.fans:
-                    if fan.id in entry[CONF_FANS]:
-                        entities.append(
-                            SmartCocoonFanEntity(
-                                coordinator=coordinator,
-                                system_id=system.id,
-                                room_id=room.id,
-                                fan_id=fan.id,
-                                entity_description=SmartCocoonFanEntityDescription(
-                                    key=None,
-                                    name=None,
-                                ),
-                            )
-                        )
+                entities.extend(
+                    SmartCocoonFanEntity(
+                        coordinator=coordinator,
+                        system_id=system.id,
+                        room_id=room.id,
+                        fan_id=fan.id,
+                        entity_description=SmartCocoonFanEntityDescription(
+                            key=None,
+                            name=None,
+                        ),
+                    )
+                    for fan in room.fans
+                    if fan.id in entry[CONF_FANS]
+                )
 
     async_add_entities(entities)
 
@@ -144,7 +141,7 @@ class SmartCocoonFanEntity(FanEntity, SmartCocoonEntity):
     def set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
         if preset_mode not in self.preset_modes:
-            _LOGGER.warning(f"Invalid preset mode: {preset_mode}")
+            _LOGGER.warning("Invalid preset mode: %s", preset_mode)
         self.fan.set_auto() if preset_mode == FAN_MODE_AUTO else self.fan.set_eco()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:

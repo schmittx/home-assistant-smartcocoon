@@ -1,8 +1,8 @@
 """Support for SmartCocoon binary sensor entities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -15,12 +15,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SmartCocoonEntity
-from .const import (
-    CONF_FANS,
-    CONF_SYSTEMS,
-    DATA_COORDINATOR,
-    DOMAIN,
-)
+from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
+
 
 @dataclass
 class SmartCocoonBinarySensorEntityDescription(BinarySensorEntityDescription):
@@ -53,17 +49,17 @@ async def async_setup_entry(
             for room in system.rooms:
                 for fan in room.fans:
                     if fan.id in entry[CONF_FANS]:
-                        for description in BINARY_SENSOR_DESCRIPTIONS:
-                            if hasattr(fan, description.key):
-                                entities.append(
-                                    SmartCocoonBinarySensorEntity(
-                                        coordinator=coordinator,
-                                        system_id=system.id,
-                                        room_id=room.id,
-                                        fan_id=fan.id,
-                                        entity_description=description,
-                                    )
-                                )
+                        entities.extend(
+                            SmartCocoonBinarySensorEntity(
+                                coordinator=coordinator,
+                                system_id=system.id,
+                                room_id=room.id,
+                                fan_id=fan.id,
+                                entity_description=description,
+                            )
+                            for description in BINARY_SENSOR_DESCRIPTIONS
+                            if hasattr(fan, description.key)
+                        )
 
     async_add_entities(entities)
 

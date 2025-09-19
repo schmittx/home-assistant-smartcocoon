@@ -1,4 +1,5 @@
-"""Smart Cocoon API"""
+"""Smart Cocoon API."""
+
 API_ENDPOINT = "https://app.mysmartcocoon.com/api"
 
 LOGIN_FAILED = "login_failed"

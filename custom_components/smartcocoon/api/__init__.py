@@ -1,15 +1,15 @@
-"""Smart Cocoon API"""
+"""Smart Cocoon API."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
-
 import json
 import logging
-import os
+from pathlib import Path
+from typing import Any
+
 import requests
 
-from .system import System
 from .const import (
     API_ENDPOINT,
     LOGIN_FAILED,
@@ -19,28 +19,39 @@ from .const import (
     METHOD_POST,
     METHOD_PUT,
 )
+from .system import System
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class SmartCocoonException(Exception):
+    """SmartCocoonException."""
+
     def __init__(self, status_code: int, name: str, message: str) -> None:
-        super(SmartCocoonException, self).__init__()
+        """Initialize."""
+        super().__init__()
         self.status_code = status_code
         self.name = name
         self.message = message
-        _LOGGER.debug(f"\n- SmartCocoonException\n- Status: {self.status_code}\n- Name: {self.name}\n- Message: {self.message}")
+        _LOGGER.debug(
+            "\n- SmartCocoonException\n- Status: %s\n- Name: %s\n- Message: %s",
+            self.status_code,
+            self.name,
+            self.message,
+        )
 
 
-class SmartCocoonAPI(object):
+class SmartCocoonAPI:
+    """SmartCocoonAPI."""
 
     def __init__(
-            self,
-            access_token: str = None,
-            client: str = None,
-            save_location: str = None,
-            uid: str = None,
-        ) -> None:
+        self,
+        access_token: str | None = None,
+        client: str | None = None,
+        save_location: str | None = None,
+        uid: str | None = None,
+    ) -> None:
+        """Initialize."""
         self.access_token = access_token
         self.client = client
         self.save_location = save_location
@@ -53,15 +64,20 @@ class SmartCocoonAPI(object):
         self.user_name: str = None
 
     def call(
-            self,
-            method: str,
-            url: str,
-            headers: dict = {},
-            params: dict = {},
-            **kwargs,
-        ) -> dict[str, Any] | None:
+        self,
+        method: str,
+        url: str,
+        headers: dict | None = None,
+        params: dict | None = None,
+        **kwargs,
+    ) -> dict[str, Any] | None:
+        """Call."""
         if method not in (METHOD_GET, METHOD_POST, METHOD_PUT):
-            return
+            return None
+        if headers is None:
+            headers = {}
+        if params is None:
+            params = {}
         if self.access_token:
             headers["access-token"] = self.access_token
         if self.client:
@@ -69,8 +85,8 @@ class SmartCocoonAPI(object):
         if self.uid:
             headers["uid"] = self.uid
         if method == METHOD_GET:
-            response = self.refresh(lambda:
-                self.session.get(
+            response = self.refresh(
+                lambda: self.session.get(
                     url=f"{API_ENDPOINT}/{url}",
                     headers=headers,
                     params=params,
@@ -78,8 +94,8 @@ class SmartCocoonAPI(object):
                 )
             )
         if method == METHOD_POST:
-            response = self.refresh(lambda:
-                self.session.post(
+            response = self.refresh(
+                lambda: self.session.post(
                     url=f"{API_ENDPOINT}/{url}",
                     headers=headers,
                     params=params,
@@ -87,8 +103,8 @@ class SmartCocoonAPI(object):
                 )
             )
         if method == "put":
-            response = self.refresh(lambda:
-                self.session.put(
+            response = self.refresh(
+                lambda: self.session.put(
                     url=f"{API_ENDPOINT}/{url}",
                     headers=headers,
                     params=params,
@@ -100,6 +116,7 @@ class SmartCocoonAPI(object):
         return response
 
     def login(self, email: str, password: str) -> str:
+        """Login."""
         try:
             data = {"email": email, "password": password}
             response = self.call(
@@ -116,7 +133,7 @@ class SmartCocoonAPI(object):
                 ]
             ):
                 return LOGIN_FAILED
-            elif all(
+            if all(
                 [
                     exception.status_code == 403,
                     exception.message == "Too many failed attempts",
@@ -128,6 +145,8 @@ class SmartCocoonAPI(object):
         return LOGIN_SUCCESS
 
     def parse_response(self, response: requests.Response) -> dict[str, Any] | None:
+        """Parse response."""
+        text = json.loads(response.text)
         if response.status_code not in [200]:
             error = text["error"]
             raise SmartCocoonException(
@@ -138,10 +157,10 @@ class SmartCocoonAPI(object):
         self.access_token = response.headers["access-token"]
         self.client = response.headers["client"]
         self.uid = response.headers["uid"]
-        text = json.loads(response.text)
         return text
 
     def refresh(self, function: Callable) -> requests.Response:
+        """Refresh."""
         response = function()
         if response.status_code not in [200]:
             text = json.loads(response.text)
@@ -160,11 +179,14 @@ class SmartCocoonAPI(object):
         return response
 
     def save_response(self, response: dict[str, Any], name: str = "response"):
+        """Save response."""
         if self.save_location and response:
-            if not os.path.isdir(self.save_location):
-                os.mkdir(self.save_location)
-            name = name.replace("/", "_").replace(".", "_")
-            with open(f"{self.save_location}/{name}.json", "w") as file:
+            if not Path(self.save_location).is_dir():
+                _LOGGER.debug("Creating directory: %s", self.save_location)
+                Path(self.save_location).mkdir()
+            file_path_name = f"{self.save_location}/{name}.json"
+            _LOGGER.debug("Saving response: %s", file_path_name)
+            with Path(file_path_name).open(mode="w", encoding="utf-8") as file:
                 json.dump(
                     obj=response,
                     fp=file,
@@ -175,6 +197,7 @@ class SmartCocoonAPI(object):
             file.close()
 
     def update(self, target_systems: list[int] | None = None) -> list[System]:
+        """Update."""
         try:
             data = []
             systems = self.call(
@@ -190,7 +213,7 @@ class SmartCocoonAPI(object):
                 ):
                     rooms = self.call(
                         method=METHOD_GET,
-                        url=f"rooms",
+                        url="rooms",
                         params={
                             "filter%5Bthermostat%5D%5Bclient_system_id": system["id"],
                         },

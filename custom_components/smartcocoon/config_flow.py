@@ -1,14 +1,16 @@
 """Adds config flow for SmartCocoon integration."""
+
 import logging
-import voluptuous as vol
 from typing import Any
+
+import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import (
-    UnitOfTime,
     CONF_EMAIL,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
+    UnitOfTime,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
@@ -54,7 +56,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     MINOR_VERSION = 0
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize."""
         self.api = None
         self.index = 0
@@ -67,12 +69,13 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.user_input[CONF_EMAIL]
 
     async def async_finish_login(self, errors):
+        """Async finish login."""
         await self.async_set_unique_id(str(self.api.user_id))
         self._abort_if_unique_id_configured()
 
         try:
             self.response = await self.hass.async_add_executor_job(self.api.update)
-        except SmartCocoonException as exception:
+        except SmartCocoonException:
             errors["base"] = "update_failed"
 
         self.user_input[CONF_ACCESS_TOKEN] = self.api.access_token
@@ -81,10 +84,10 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_systems()
 
     async def async_step_user(self, user_input=None):
+        """Async step user."""
         errors = {}
 
         if user_input is not None:
-
             self.user_input[CONF_EMAIL] = user_input[CONF_EMAIL]
             self.user_input[CONF_PASSWORD] = user_input[CONF_PASSWORD]
             self.api = SmartCocoonAPI()
@@ -96,7 +99,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
             if result == LOGIN_SUCCESS:
-                _LOGGER.debug(f"Login successful")
+                _LOGGER.debug("Login successful")
                 return await self.async_finish_login(errors)
             errors["base"] = result
 
@@ -120,10 +123,10 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_systems(self, user_input=None):
+        """Async step systems."""
         errors = {}
 
         if user_input is not None:
-
             self.user_input[CONF_SYSTEMS] = []
 
             for system in self.response:
@@ -155,10 +158,10 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_fans(self, user_input=None):
+        """Async step fans."""
         errors = {}
 
         if user_input is not None:
-
             if not self.user_input.get(CONF_FANS):
                 self.user_input[CONF_FANS] = []
 
@@ -174,11 +177,15 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.index = 0
             if self.show_advanced_options:
                 return await self.async_step_advanced()
-            return self.async_create_entry(title=self.config_title, data=self.user_input)
+            return self.async_create_entry(
+                title=self.config_title, data=self.user_input
+            )
 
         for system in self.response:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                fan_names = [fan.name_location for room in system.rooms for fan in room.fans]
+                fan_names = [
+                    fan.name_location for room in system.rooms for fan in room.fans
+                ]
 
                 if not fan_names:
                     self.index += 1
@@ -201,6 +208,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders={"system_name": system.name_location},
                     errors=errors,
                 )
+        return None
 
     async def async_step_advanced(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -208,14 +216,20 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.user_input[CONF_SAVE_RESPONSES] = user_input[CONF_SAVE_RESPONSES]
             self.user_input[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
             self.user_input[CONF_TIMEOUT] = user_input[CONF_TIMEOUT]
-            return self.async_create_entry(title=self.config_title, data=self.user_input)
+            return self.async_create_entry(
+                title=self.config_title, data=self.user_input
+            )
 
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_SAVE_RESPONSES, default=DEFAULT_SAVE_RESPONSES): BooleanSelector(),
-                    vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): NumberSelector(
+                    vol.Optional(
+                        CONF_SAVE_RESPONSES, default=DEFAULT_SAVE_RESPONSES
+                    ): BooleanSelector(),
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+                    ): NumberSelector(
                         NumberSelectorConfig(
                             min=MIN_SCAN_INTERVAL,
                             max=MAX_SCAN_INTERVAL,
@@ -245,7 +259,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options for SmartCocoon."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize SmartCocoon options flow."""
         self.coordinator = None
         self.index = 0
@@ -263,16 +277,26 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
-        self.coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id][DATA_COORDINATOR]
+        self.coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id][
+            DATA_COORDINATOR
+        ]
         return await self.async_step_systems()
 
     async def async_step_systems(self, user_input=None):
         """Handle a flow initialized by the user."""
         if user_input is not None:
-            self.user_input[CONF_SYSTEMS] = [system.id for system in self.coordinator.data if system.name_location in user_input[CONF_SYSTEMS]]
+            self.user_input[CONF_SYSTEMS] = [
+                system.id
+                for system in self.coordinator.data
+                if system.name_location in user_input[CONF_SYSTEMS]
+            ]
             return await self.async_step_fans()
 
-        conf_systems = [system.name_location for system in self.coordinator.data if system.id in self.options.get(CONF_SYSTEMS, self.data[CONF_SYSTEMS])]
+        conf_systems = [
+            system.name_location
+            for system in self.coordinator.data
+            if system.id in self.options.get(CONF_SYSTEMS, self.data[CONF_SYSTEMS])
+        ]
         system_names = [system.name_location for system in self.coordinator.data]
 
         return self.async_show_form(
@@ -296,20 +320,34 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             for system in self.coordinator.data:
                 if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                    self.user_input[CONF_FANS].extend([fan.id for room in system.rooms for fan in room.fans if fan.name_location in user_input[CONF_FANS]])
+                    self.user_input[CONF_FANS].extend(
+                        [
+                            fan.id
+                            for room in system.rooms
+                            for fan in room.fans
+                            if fan.name_location in user_input[CONF_FANS]
+                        ]
+                    )
                     self.index += 1
 
         if self.index == len(self.user_input[CONF_SYSTEMS]):
             if self.show_advanced_options:
                 return await self.async_step_advanced()
             return self.async_create_entry(title="", data=self.user_input)
-        elif self.index == 0:
+        if self.index == 0:
             self.user_input[CONF_FANS] = []
 
         for system in self.coordinator.data:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
-                conf_fans = [fan.name_location for room in system.rooms for fan in room.fans if fan.id in self.options.get(CONF_FANS, self.data[CONF_FANS])]
-                fan_names = [fan.name_location for room in system.rooms for fan in room.fans]
+                conf_fans = [
+                    fan.name_location
+                    for room in system.rooms
+                    for fan in room.fans
+                    if fan.id in self.options.get(CONF_FANS, self.data[CONF_FANS])
+                ]
+                fan_names = [
+                    fan.name_location for room in system.rooms for fan in room.fans
+                ]
 
                 return self.async_show_form(
                     step_id="fans",
@@ -327,6 +365,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                     description_placeholders={"system_name": system.name_location},
                 )
+        return None
 
     async def async_step_advanced(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -336,16 +375,27 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
             self.user_input[CONF_TIMEOUT] = user_input[CONF_TIMEOUT]
             return self.async_create_entry(title="", data=self.user_input)
 
-        conf_save_responses = self.options.get(CONF_SAVE_RESPONSES, self.data.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES))
-        conf_scan_interval = self.options.get(CONF_SCAN_INTERVAL, self.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
-        conf_timeout = self.options.get(CONF_TIMEOUT, self.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))
+        conf_save_responses = self.options.get(
+            CONF_SAVE_RESPONSES,
+            self.data.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES),
+        )
+        conf_scan_interval = self.options.get(
+            CONF_SCAN_INTERVAL, self.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        )
+        conf_timeout = self.options.get(
+            CONF_TIMEOUT, self.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+        )
 
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_SAVE_RESPONSES, default=conf_save_responses): BooleanSelector(),
-                    vol.Optional(CONF_SCAN_INTERVAL, default=conf_scan_interval): NumberSelector(
+                    vol.Optional(
+                        CONF_SAVE_RESPONSES, default=conf_save_responses
+                    ): BooleanSelector(),
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL, default=conf_scan_interval
+                    ): NumberSelector(
                         NumberSelectorConfig(
                             min=MIN_SCAN_INTERVAL,
                             max=MAX_SCAN_INTERVAL,

@@ -1,8 +1,8 @@
 """Support for SmartCocoon select entities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -11,12 +11,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SmartCocoonEntity
-from .const import (
-    CONF_FANS,
-    CONF_SYSTEMS,
-    DATA_COORDINATOR,
-    DOMAIN,
-)
+from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
+
 
 @dataclass
 class SmartCocoonSelectEntityDescription(SelectEntityDescription):
@@ -24,6 +20,7 @@ class SmartCocoonSelectEntityDescription(SelectEntityDescription):
 
     entity_category: str[EntityCategory] | None = EntityCategory.CONFIG
     translation_key: str | None = "all"
+
 
 SELECT_DESCRIPTIONS: list[SmartCocoonSelectEntityDescription] = [
     SmartCocoonSelectEntityDescription(
@@ -56,17 +53,17 @@ async def async_setup_entry(
             for room in system.rooms:
                 for fan in room.fans:
                     if fan.id in entry[CONF_FANS]:
-                        for description in SELECT_DESCRIPTIONS:
-                            if hasattr(fan, description.key):
-                                entities.append(
-                                    SmartCocoonSelectEntity(
-                                        coordinator=coordinator,
-                                        system_id=system.id,
-                                        room_id=room.id,
-                                        fan_id=fan.id,
-                                        entity_description=description,
-                                    )
-                                )
+                        entities.extend(
+                            SmartCocoonSelectEntity(
+                                coordinator=coordinator,
+                                system_id=system.id,
+                                room_id=room.id,
+                                fan_id=fan.id,
+                                entity_description=description,
+                            )
+                            for description in SELECT_DESCRIPTIONS
+                            if hasattr(fan, description.key)
+                        )
 
     async_add_entities(entities)
 
