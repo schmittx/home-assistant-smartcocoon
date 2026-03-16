@@ -90,16 +90,12 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_EMAIL, default="schmitt.matt@icloud.com"
-                    ): TextSelector(
+                    vol.Required(CONF_EMAIL): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.EMAIL,
                         )
                     ),
-                    vol.Required(
-                        CONF_PASSWORD, default="A4kLvwmKk4h*-zKyuB73"
-                    ): TextSelector(
+                    vol.Required(CONF_PASSWORD): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.PASSWORD,
                         )
