@@ -1,10 +1,14 @@
-"""Support for SmartCocoon select entities."""
+"""Support for SmartCocoon number entities."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from homeassistant.components.select import SelectEntity, SelectEntityDescription
+from homeassistant.components.number import (
+    NumberDeviceClass,
+    NumberEntity,
+    NumberEntityDescription,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -15,20 +19,24 @@ from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
 
 
 @dataclass(frozen=True)
-class SmartCocoonSelectEntityDescription(SelectEntityDescription):
-    """Class to describe a SmartCocoon select entity."""
+class SmartCocoonNumberEntityDescription(NumberEntityDescription):
+    """Class to describe a SmartCocoon number entity."""
 
     entity_category: EntityCategory | None = EntityCategory.CONFIG
-    options_key: str | None = None
+    native_max_value: float = 100
+    native_min_value: float = 1
+    native_step: float = 1
     translation_key: str | None = "all"
 
 
-SELECT_DESCRIPTIONS: list[SmartCocoonSelectEntityDescription] = [
-    SmartCocoonSelectEntityDescription(
-        key="mode",
-        name="Mode",
-        options_key="mode_options",
-        icon="mdi:list-box",
+NUMBER_DESCRIPTIONS: list[SmartCocoonNumberEntityDescription] = [
+    SmartCocoonNumberEntityDescription(
+        key="speed_level",
+        name="Speed Level",
+        device_class=NumberDeviceClass.POWER_FACTOR,
+        native_max_value=12,
+        native_unit_of_measurement=None,
+        icon="mdi:speedometer",
     ),
 ]
 
@@ -38,10 +46,10 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up a SmartCocoon select entity based on a config entry."""
+    """Set up a SmartCocoon number entity based on a config entry."""
     entry = hass.data[DOMAIN][config_entry.entry_id]
     coordinator = entry[DATA_COORDINATOR]
-    entities: list[SmartCocoonSelectEntity] = []
+    entities: list[SmartCocoonNumberEntity] = []
 
     for system in coordinator.data:
         if system.id in entry[CONF_SYSTEMS]:
@@ -49,39 +57,32 @@ async def async_setup_entry(
                 for fan in room.fans:
                     if fan.id in entry[CONF_FANS]:
                         entities.extend(
-                            SmartCocoonSelectEntity(
+                            SmartCocoonNumberEntity(
                                 coordinator=coordinator,
                                 system_id=system.id,
                                 room_id=room.id,
                                 fan_id=fan.id,
                                 entity_description=description,
                             )
-                            for description in SELECT_DESCRIPTIONS
+                            for description in NUMBER_DESCRIPTIONS
                             if hasattr(fan, description.key)
                         )
 
     async_add_entities(entities)
 
 
-class SmartCocoonSelectEntity(SelectEntity, SmartCocoonEntity):
-    """Representation of a SmartCocoon select entity."""
+class SmartCocoonNumberEntity(NumberEntity, SmartCocoonEntity):
+    """Representation of a SmartCocoon number entity."""
 
-    entity_description: SmartCocoonSelectEntityDescription
-
-    @property
-    def options(self) -> list[str]:
-        """Return a set of selectable options."""
-        if self.entity_description.options_key:
-            return getattr(self.fan, self.entity_description.options_key)
-        return []
+    entity_description: SmartCocoonNumberEntityDescription
 
     @property
-    def current_option(self) -> str | None:
-        """Return the selected entity option to represent the entity state."""
+    def native_value(self) -> float | None:
+        """Return the value reported by the number."""
         return getattr(self.fan, self.entity_description.key)
 
-    async def async_select_option(self, option: str) -> None:
-        """Change the selected option."""
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value."""
         if self.fan:
-            await self.fan.set_property(self.entity_description.key, option)
+            await self.fan.set_property(self.entity_description.key, value)
             await self.coordinator.async_request_refresh()

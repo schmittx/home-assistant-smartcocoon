@@ -7,7 +7,7 @@ Custom component to allow control of [Smart Cocoon devices](https://mysmartcocoo
 - A `binary_sensor`, `fan`, and two `select` entities will be created for each booster fan.
 
 ## Install
-1. Ensure Home Assistant is updated to version 2025.1.0 or newer.
+1. Ensure Home Assistant is updated to version 2026.3.0 or newer.
 2. Use HACS and add as a [custom repo](https://hacs.xyz/docs/faq/custom_repositories); or download and manually move to the `custom_components` folder.
 3. Once the integration is installed follow the standard process to setup via UI and search for `Smart Cocoon`.
 4. Follow the prompts.

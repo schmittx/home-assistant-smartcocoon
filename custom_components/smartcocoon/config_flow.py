@@ -1,6 +1,7 @@
 """Adds config flow for SmartCocoon integration."""
 
 import logging
+from types import MappingProxyType
 from typing import Any
 
 import voluptuous as vol
@@ -25,25 +26,19 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import LOGIN_SUCCESS, SmartCocoonAPI, SmartCocoonException
+from .api import SmartCocoonAPI, SmartCocoonAuthError
+from .api.system import System as SmartCocoonSystem
 from .const import (
-    CONF_ACCESS_TOKEN,
-    CONF_CLIENT,
+    CONF_AUTHORIZATION,
     CONF_FANS,
     CONF_SAVE_RESPONSES,
     CONF_SYSTEMS,
     CONF_TIMEOUT,
     DATA_COORDINATOR,
     DEFAULT_SAVE_RESPONSES,
-    DEFAULT_SCAN_INTERVAL,
-    DEFAULT_TIMEOUT,
     DOMAIN,
-    MAX_SCAN_INTERVAL,
-    MAX_TIMEOUT,
-    MIN_SCAN_INTERVAL,
-    MIN_TIMEOUT,
-    STEP_SCAN_INTERVAL,
-    STEP_TIMEOUT,
+    ScanInterval,
+    Timeout,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,30 +53,15 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize."""
-        self.api = None
+        self.api: SmartCocoonAPI = SmartCocoonAPI()
         self.index = 0
-        self.response = None
-        self.user_input = {}
+        self.response: list[SmartCocoonSystem] = []
+        self.user_input: dict[str, Any] = {}
 
     @property
     def config_title(self) -> str:
         """Return the config title."""
         return self.user_input[CONF_EMAIL]
-
-    async def async_finish_login(self, errors):
-        """Async finish login."""
-        await self.async_set_unique_id(str(self.api.user_id))
-        self._abort_if_unique_id_configured()
-
-        try:
-            self.response = await self.hass.async_add_executor_job(self.api.update)
-        except SmartCocoonException:
-            errors["base"] = "update_failed"
-
-        self.user_input[CONF_ACCESS_TOKEN] = self.api.access_token
-        self.user_input[CONF_CLIENT] = self.api.client
-
-        return await self.async_step_systems()
 
     async def async_step_user(self, user_input=None):
         """Async step user."""
@@ -92,27 +72,34 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.user_input[CONF_PASSWORD] = user_input[CONF_PASSWORD]
             self.api = SmartCocoonAPI()
 
-            result = await self.hass.async_add_executor_job(
-                self.api.login,
-                self.user_input[CONF_EMAIL],
-                self.user_input[CONF_PASSWORD],
-            )
-
-            if result == LOGIN_SUCCESS:
+            try:
+                await self.api.login(
+                    email=self.user_input[CONF_EMAIL],
+                    password=self.user_input[CONF_PASSWORD],
+                )
+            except SmartCocoonAuthError:
+                errors["base"] = "invalid_auth"
+            except Exception as exception:
+                _LOGGER.exception("%s", type(exception).__name__)
+                errors["base"] = "unknown"
+            else:
                 _LOGGER.debug("Login successful")
                 return await self.async_finish_login(errors)
-            errors["base"] = result
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_EMAIL): TextSelector(
+                    vol.Required(
+                        CONF_EMAIL, default="schmitt.matt@icloud.com"
+                    ): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.EMAIL,
                         )
                     ),
-                    vol.Required(CONF_PASSWORD): TextSelector(
+                    vol.Required(
+                        CONF_PASSWORD, default="A4kLvwmKk4h*-zKyuB73"
+                    ): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.PASSWORD,
                         )
@@ -121,6 +108,19 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def async_finish_login(self, errors):
+        """Async finish login."""
+        await self.async_set_unique_id(str(self.api.user_id))
+        self._abort_if_unique_id_configured()
+
+        self.user_input[CONF_AUTHORIZATION] = self.api.authorization
+        try:
+            self.response = await self.api.update()
+        except SmartCocoonAuthError:
+            errors["base"] = "update_failed"
+
+        return await self.async_step_systems()
 
     async def async_step_systems(self, user_input=None):
         """Async step systems."""
@@ -135,7 +135,9 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_fans()
 
-        system_names = [system.name_location for system in self.response]
+        system_names = [
+            system.name_location for system in self.response if system.name_location
+        ]
 
         if not system_names:
             return await self.async_step_fans()
@@ -205,7 +207,9 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             ),
                         }
                     ),
-                    description_placeholders={"system_name": system.name_location},
+                    description_placeholders={
+                        "system_name": system.name_location or ""
+                    },
                     errors=errors,
                 )
         return None
@@ -228,20 +232,20 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SAVE_RESPONSES, default=DEFAULT_SAVE_RESPONSES
                     ): BooleanSelector(),
                     vol.Optional(
-                        CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+                        CONF_SCAN_INTERVAL, default=ScanInterval.DEFAULT
                     ): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_SCAN_INTERVAL,
-                            max=MAX_SCAN_INTERVAL,
-                            step=STEP_SCAN_INTERVAL,
+                            min=ScanInterval.MIN,
+                            max=ScanInterval.MAX,
+                            step=ScanInterval.STEP,
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),
-                    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): NumberSelector(
+                    vol.Optional(CONF_TIMEOUT, default=Timeout.DEFAULT): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_TIMEOUT,
-                            max=MAX_TIMEOUT,
-                            step=STEP_TIMEOUT,
+                            min=Timeout.MIN,
+                            max=Timeout.MAX,
+                            step=Timeout.STEP,
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),
@@ -262,16 +266,17 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self) -> None:
         """Initialize SmartCocoon options flow."""
         self.coordinator = None
+        self.coordinator_data: list[SmartCocoonSystem] = []
         self.index = 0
         self.user_input = {}
 
     @property
-    def data(self) -> dict[str, Any]:
+    def data(self) -> MappingProxyType[str, Any]:
         """Return the data from a config entry."""
         return self.config_entry.data
 
     @property
-    def options(self) -> dict[str, Any]:
+    def options(self) -> MappingProxyType[str, Any]:
         """Return the options from a config entry."""
         return self.config_entry.options
 
@@ -280,6 +285,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
         self.coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id][
             DATA_COORDINATOR
         ]
+        self.coordinator_data = self.coordinator.data
         return await self.async_step_systems()
 
     async def async_step_systems(self, user_input=None):
@@ -287,17 +293,21 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             self.user_input[CONF_SYSTEMS] = [
                 system.id
-                for system in self.coordinator.data
+                for system in self.coordinator_data
                 if system.name_location in user_input[CONF_SYSTEMS]
             ]
             return await self.async_step_fans()
 
         conf_systems = [
             system.name_location
-            for system in self.coordinator.data
+            for system in self.coordinator_data
             if system.id in self.options.get(CONF_SYSTEMS, self.data[CONF_SYSTEMS])
         ]
-        system_names = [system.name_location for system in self.coordinator.data]
+        system_names = [
+            system.name_location
+            for system in self.coordinator_data
+            if system.name_location
+        ]
 
         return self.async_show_form(
             step_id="systems",
@@ -318,7 +328,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_fans(self, user_input=None):
         """Handle a flow initialized by the user."""
         if user_input is not None:
-            for system in self.coordinator.data:
+            for system in self.coordinator_data:
                 if system.id == self.user_input[CONF_SYSTEMS][self.index]:
                     self.user_input[CONF_FANS].extend(
                         [
@@ -337,7 +347,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
         if self.index == 0:
             self.user_input[CONF_FANS] = []
 
-        for system in self.coordinator.data:
+        for system in self.coordinator_data:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
                 conf_fans = [
                     fan.name_location
@@ -363,7 +373,9 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
                             ),
                         }
                     ),
-                    description_placeholders={"system_name": system.name_location},
+                    description_placeholders={
+                        "system_name": system.name_location or ""
+                    },
                 )
         return None
 
@@ -380,10 +392,10 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
             self.data.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES),
         )
         conf_scan_interval = self.options.get(
-            CONF_SCAN_INTERVAL, self.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            CONF_SCAN_INTERVAL, self.data.get(CONF_SCAN_INTERVAL, ScanInterval.DEFAULT)
         )
         conf_timeout = self.options.get(
-            CONF_TIMEOUT, self.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+            CONF_TIMEOUT, self.data.get(CONF_TIMEOUT, Timeout.DEFAULT)
         )
 
         return self.async_show_form(
@@ -397,17 +409,17 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_SCAN_INTERVAL, default=conf_scan_interval
                     ): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_SCAN_INTERVAL,
-                            max=MAX_SCAN_INTERVAL,
-                            step=STEP_SCAN_INTERVAL,
+                            min=ScanInterval.MIN,
+                            max=ScanInterval.MAX,
+                            step=ScanInterval.STEP,
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),
                     vol.Optional(CONF_TIMEOUT, default=conf_timeout): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_TIMEOUT,
-                            max=MAX_TIMEOUT,
-                            step=STEP_TIMEOUT,
+                            min=Timeout.MIN,
+                            max=Timeout.MAX,
+                            step=Timeout.STEP,
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),

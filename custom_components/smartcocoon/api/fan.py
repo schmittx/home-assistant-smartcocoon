@@ -2,21 +2,11 @@
 
 from __future__ import annotations
 
+from http import HTTPMethod
 import logging
+from typing import Any
 
-from .const import (
-    DEFAULT_FAN_NAME,
-    FAN_MODE_AUTO,
-    FAN_MODE_ECO,
-    FAN_MODE_OFF,
-    FAN_MODE_ON,
-    FAN_MODES,
-    METHOD_PUT,
-    MODEL_MAP,
-    MODEL_UNKNOWN,
-    SPEED_LEVEL_MAP,
-    SPEED_LEVEL_UNKNOWN,
-)
+from .const import DEFAULT_MODEL_NAME, DEVICE_SIZE_MAP, FanMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,63 +57,9 @@ class Fan:
         return self.data.get("power")
 
     @property
-    def power_pct(self) -> int | None:
-        """Power pct."""
-        if self.power:
-            return int(self.power / 100)
-        return None
-
-    @power_pct.setter
-    def power_pct(self, value: int) -> None:
-        _LOGGER.debug("Setting power level for: %s with raw value: %s", self.id, value)
-        value = int(value * 100)
-        _LOGGER.debug(
-            "Setting power level for: %s with converted value: %s", self.id, value
-        )
-        self.api.call(
-            method=METHOD_PUT,
-            url=f"fans/{self.id}",
-            json={"power": value},
-        )
-
-    def set_power_pct(self, value) -> None:
-        """Set power pct."""
-        setattr(self, "power_pct", value)
-
-    @property
     def speed_level(self) -> int | None:
         """Speed level."""
         return self.data.get("speed_level")
-
-    @property
-    def speed_level_pct(self) -> str:
-        """Speed level pct."""
-        if self.speed_level:
-            return SPEED_LEVEL_MAP.get(self.speed_level, SPEED_LEVEL_UNKNOWN)
-        return SPEED_LEVEL_UNKNOWN
-
-    @speed_level_pct.setter
-    def speed_level_pct(self, value: str) -> None:
-        _LOGGER.debug("Setting speed level for: %s with raw value: %s", self.id, value)
-        if value not in self.speed_level_pct_options:
-            _LOGGER.debug(
-                "Unable to set speed level for: %s with raw value: %s", self.id, value
-            )
-            return
-        value = list(SPEED_LEVEL_MAP.keys())[self.speed_level_pct_options.index(value)]
-        _LOGGER.debug(
-            "Setting speed level for: %s with converted value: %s", self.id, value
-        )
-        self.api.call(
-            method=METHOD_PUT,
-            url=f"fans/{self.id}",
-            json={"speed_level": value},
-        )
-
-    @property
-    def speed_level_pct_options(self) -> list[str]:
-        """Speed level pct options."""
-        return list(SPEED_LEVEL_MAP.values())
 
     @property
     def firmware_version(self) -> str | None:
@@ -135,45 +71,10 @@ class Fan:
         """Mode."""
         return self.data.get("mode")
 
-    @mode.setter
-    def mode(self, value: str) -> None:
-        if value not in FAN_MODES:
-            _LOGGER.debug("Unable to set mode for: %s with value: %s", self.id, value)
-            return
-        _LOGGER.debug("Setting mode for: %s with value: %s", self.id, value)
-        self.api.call(
-            method=METHOD_PUT,
-            url=f"fans/{self.id}",
-            json={"mode": value},
-        )
-
     @property
     def mode_options(self) -> list[str]:
         """Mode options."""
-        return FAN_MODES
-
-    def turn_off(self) -> None:
-        """Turn off."""
-        setattr(self, "mode", FAN_MODE_OFF)
-
-    def turn_on(self, mode: str = FAN_MODE_ON, power_pct: int | None = None) -> None:
-        """Turn on."""
-        data = {"mode": mode}
-        if power_pct:
-            data["power"] = int(power_pct * 100)
-        self.api.call(
-            method=METHOD_PUT,
-            url=f"fans/{self.id}",
-            json=data,
-        )
-
-    def set_auto(self) -> None:
-        """Set auto."""
-        setattr(self, "mode", FAN_MODE_AUTO)
-
-    def set_eco(self) -> None:
-        """Set eco."""
-        setattr(self, "mode", FAN_MODE_ECO)
+        return [mode.value for mode in FanMode]
 
     @property
     def size(self) -> int | None:
@@ -183,7 +84,9 @@ class Fan:
     @property
     def model_name(self) -> str:
         """Model name."""
-        return MODEL_MAP.get(self.size, MODEL_UNKNOWN)
+        if self.size is not None and (size := DEVICE_SIZE_MAP.get(self.size)):
+            return f"{DEFAULT_MODEL_NAME} ({size})"
+        return DEFAULT_MODEL_NAME
 
     @property
     def mqtt_username(self) -> str | None:
@@ -195,7 +98,7 @@ class Fan:
         """Name."""
         if name := self.data.get("name"):
             return name
-        return f"{DEFAULT_FAN_NAME} ({self.fan_id})"
+        return f"{DEFAULT_MODEL_NAME} ({self.fan_id})"
 
     @property
     def name_location(self) -> str:
@@ -231,3 +134,32 @@ class Fan:
     def connected(self) -> bool | None:
         """Connected."""
         return self.data.get("connected")
+
+    async def set_property(self, key: str, value: Any) -> None:
+        """Set property."""
+        if not isinstance(key, str) or not isinstance(value, (bool, int, str)):
+            return
+        _LOGGER.debug(
+            "Setting property for: %s with key: %s and value: %s", self.id, key, value
+        )
+        await self.api.call(
+            method=HTTPMethod.PUT,
+            path=f"fans/{self.id}",
+            json={key: value},
+        )
+
+    async def set_mode(self, mode: str) -> None:
+        """Set mode."""
+        if not isinstance(mode, str):
+            _LOGGER.warning("Unable to set mode for: %s with value: %s", self.id, mode)
+            return
+        _LOGGER.debug("Setting mode for: %s with value: %s", self.id, mode)
+        await self.set_property(key="mode", value=mode)
+
+    async def turn_off(self) -> None:
+        """Turn off."""
+        await self.set_mode(mode=FanMode.OFF)
+
+    async def turn_on(self) -> None:
+        """Turn on."""
+        await self.set_mode(mode=FanMode.ON)

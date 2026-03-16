@@ -16,13 +16,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SmartCocoonEntity
-from .api.const import FAN_MODE_AUTO, FAN_MODE_ECO
+from .api.const import FanMode
 from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class SmartCocoonFanEntityDescription(FanEntityDescription):
     """Class to describe a SmartCocoon fan entity."""
 
@@ -49,7 +49,7 @@ async def async_setup_entry(
                         room_id=room.id,
                         fan_id=fan.id,
                         entity_description=SmartCocoonFanEntityDescription(
-                            key=None,
+                            key="fan",
                             name=None,
                         ),
                     )
@@ -67,48 +67,30 @@ class SmartCocoonFanEntity(FanEntity, SmartCocoonEntity):
     _attr_preset_modes: list[str] | None = []
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
         """Return True if entity is on."""
-        return self.fan.fan_on
-
-    @property
-    def percentage(self) -> int:
-        """Return the current speed percentage."""
-        return self.fan.power_pct
-
-    @property
-    def speed_count(self) -> int:
-        """Return the number of speeds the fan supports."""
-        return 100
+        return self.fan and self.fan.fan_on
 
     @property
     def preset_mode(self) -> str | None:
         """Return the current preset mode, e.g., auto, smart, interval, favorite."""
-        return self.fan.mode
+        if self.fan:
+            return self.fan.mode
+        return None
 
     @property
     def preset_modes(self) -> list[str]:
         """List of available preset modes."""
-        return [FAN_MODE_AUTO, FAN_MODE_ECO]
+        return [FanMode.AUTO, FanMode.ECO]
 
     @property
     def supported_features(self) -> FanEntityFeature:
         """Flag supported features."""
         supported_features = FanEntityFeature(0)
-        supported_features |= FanEntityFeature.SET_SPEED
         supported_features |= FanEntityFeature.TURN_OFF
         supported_features |= FanEntityFeature.TURN_ON
         supported_features |= FanEntityFeature.PRESET_MODE
         return supported_features
-
-    def turn_on(
-        self,
-        percentage: int | None = None,
-        preset_mode: str | None = None,
-        **kwargs: Any,
-    ) -> None:
-        """Turn the entity on."""
-        self.fan.turn_on(power_pct=percentage)
 
     async def async_turn_on(
         self,
@@ -117,34 +99,20 @@ class SmartCocoonFanEntity(FanEntity, SmartCocoonEntity):
         **kwargs: Any,
     ) -> None:
         """Turn the entity on."""
-        await super().async_turn_on(percentage, preset_mode, **kwargs)
+        if self.fan:
+            await self.fan.turn_on()
         await self.coordinator.async_request_refresh()
-
-    def turn_off(self, **kwargs: Any) -> None:
-        """Turn the entity off."""
-        self.fan.turn_off()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        await super().async_turn_off(**kwargs)
-        await self.coordinator.async_request_refresh()
-
-    def set_percentage(self, percentage: int) -> None:
-        """Set the speed of the fan, as a percentage."""
-        self.fan.set_power_pct(percentage)
-
-    async def async_set_percentage(self, percentage: int) -> None:
-        """Set the speed percentage of the fan."""
-        await super().async_set_percentage(percentage)
-        await self.coordinator.async_request_refresh()
-
-    def set_preset_mode(self, preset_mode: str) -> None:
-        """Set new preset mode."""
-        if preset_mode not in self.preset_modes:
-            _LOGGER.warning("Invalid preset mode: %s", preset_mode)
-        self.fan.set_auto() if preset_mode == FAN_MODE_AUTO else self.fan.set_eco()
+        if self.fan:
+            await self.fan.turn_off()
+            await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
-        await super().async_set_preset_mode(preset_mode)
-        await self.coordinator.async_request_refresh()
+        if preset_mode not in self.preset_modes:
+            _LOGGER.warning("Invalid preset mode: %s", preset_mode)
+        if self.fan:
+            await self.fan.set_mode(mode=preset_mode)
+            await self.coordinator.async_request_refresh()

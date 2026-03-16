@@ -9,6 +9,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import (
@@ -17,13 +18,12 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .api import SmartCocoonAPI, SmartCocoonException
+from .api import SmartCocoonAPI, SmartCocoonAuthError
 from .api.fan import Fan as SmartCocoonFan
 from .api.room import Room as SmartCocoonRoom
 from .api.system import System as SmartCocoonSystem
 from .const import (
-    CONF_ACCESS_TOKEN,
-    CONF_CLIENT,
+    CONF_AUTHORIZATION,
     CONF_FANS,
     CONF_SAVE_RESPONSES,
     CONF_SYSTEMS,
@@ -32,16 +32,17 @@ from .const import (
     DATA_COORDINATOR,
     DEFAULT_SAVE_LOCATION,
     DEFAULT_SAVE_RESPONSES,
-    DEFAULT_SCAN_INTERVAL,
-    DEFAULT_TIMEOUT,
     DEVICE_MANUFACTURER,
     DOMAIN,
     UNDO_UPDATE_LISTENER,
+    ScanInterval,
+    Timeout,
 )
 
 PLATFORMS = (
     Platform.BINARY_SENSOR,
     Platform.FAN,
+    Platform.NUMBER,
     Platform.SELECT,
 )
 
@@ -71,12 +72,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             device_registry.async_remove_device(device_entry.id)
 
     api = SmartCocoonAPI(
-        access_token=data[CONF_ACCESS_TOKEN],
-        client=data[CONF_CLIENT],
+        authorization=data[CONF_AUTHORIZATION],
         save_location=DEFAULT_SAVE_LOCATION
         if options.get(CONF_SAVE_RESPONSES, DEFAULT_SAVE_RESPONSES)
         else None,
-        uid=data[CONF_EMAIL],
     )
 
     async def async_update_data():
@@ -87,16 +86,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         """
         try:
             async with timeout(
-                options.get(CONF_TIMEOUT, data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))
+                options.get(CONF_TIMEOUT, data.get(CONF_TIMEOUT, Timeout.DEFAULT))
             ):
-                return await hass.async_add_executor_job(api.update, conf_systems)
-        except SmartCocoonException as exception:
+                return await api.update(target_systems=conf_systems)
+        except SmartCocoonAuthError as exception:
+            raise ConfigEntryAuthFailed from exception
+        except Exception as exception:
             raise UpdateFailed(
-                "Error communicating with API, Status: {}, Error Name: {}, Error Message: {}"
-            ).format(
-                exception.status_code,
-                exception.name,
-                exception.message,
+                f"{type(exception).__name__} while communicating with API: {exception}"
             ) from exception
 
     coordinator = DataUpdateCoordinator(
@@ -105,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         name=f"SmartCocoon ({data[CONF_EMAIL]})",
         update_method=async_update_data,
         update_interval=timedelta(
-            seconds=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            seconds=options.get(CONF_SCAN_INTERVAL, ScanInterval.DEFAULT)
         ),
     )
     await coordinator.async_refresh()
@@ -150,31 +147,33 @@ class SmartCocoonEntity(CoordinatorEntity):
         system_id: int,
         room_id: int,
         fan_id: int,
-        entity_description: EntityDescription = None,
+        entity_description: EntityDescription | None = None,
     ) -> None:
         """Initialize the device."""
         super().__init__(coordinator)
         self.system_id = system_id
         self.room_id = room_id
         self.fan_id = fan_id
-        self.entity_description = entity_description
+        if entity_description:
+            self.entity_description = entity_description
 
     @property
     def system(self) -> SmartCocoonSystem | None:
         """Return a SmartCocoonSystem object."""
-        systems = {system.id: system for system in self.coordinator.data}
+        data: list[SmartCocoonSystem] = self.coordinator.data  # pyright: ignore[reportAssignmentType]
+        systems = {system.id: system for system in data}
         return systems.get(self.system_id)
 
     @property
     def room(self) -> SmartCocoonRoom | None:
         """Return a SmartCocoonRoom object."""
-        rooms = {room.id: room for room in self.system.rooms}
+        rooms = {room.id: room for room in self.system.rooms} if self.system else {}
         return rooms.get(self.room_id)
 
     @property
     def fan(self) -> SmartCocoonFan | None:
         """Return a SmartCocoonFan object."""
-        fans = {fan.id: fan for fan in self.room.fans}
+        fans = {fan.id: fan for fan in self.room.fans} if self.room else {}
         return fans.get(self.fan_id)
 
     @property
@@ -183,39 +182,41 @@ class SmartCocoonEntity(CoordinatorEntity):
         return all(
             [
                 super().available,
-                self.fan.connected,
+                self.fan and self.fan.connected,
             ]
         )
 
     @property
-    def device_info(self) -> dr.DeviceInfo:
+    def device_info(self) -> dr.DeviceInfo | None:
         """Return device specific attributes.
 
         Implemented by platform classes.
         """
-        return dr.DeviceInfo(
-            configuration_url=CONFIGURATION_URL,
-            hw_version=self.fan.fan_id,
-            identifiers={(DOMAIN, self.fan.id)},
-            manufacturer=DEVICE_MANUFACTURER,
-            model=self.fan.model_name,
-            name=self.fan.name,
-            suggested_area=self.room.name,
-            sw_version=self.fan.firmware_version,
-        )
+        if self.fan and self.room:
+            return dr.DeviceInfo(
+                configuration_url=CONFIGURATION_URL,
+                identifiers={(DOMAIN, str(self.fan.id))},
+                manufacturer=DEVICE_MANUFACTURER,
+                model=self.fan.model_name,
+                name=self.fan.name,
+                serial_number=self.fan.fan_id,
+                suggested_area=self.room.name,
+                sw_version=self.fan.firmware_version,
+            )
+        return None
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         """Return the name of the entity."""
-        name = self.device_info["name"]
+        name = self.fan.name if self.fan else None
         if description := self.entity_description.name:
             return f"{name} {description}"
         return name
 
     @property
-    def unique_id(self) -> str:
+    def unique_id(self) -> str | None:
         """Return a unique ID."""
-        unique_id = self.fan.fan_id
-        if key := self.entity_description.key:
+        unique_id = self.fan.fan_id if self.fan else None
+        if (key := self.entity_description.key) and key != "fan":
             return f"{unique_id}-{key}"
         return unique_id

@@ -26,7 +26,7 @@ class System:
         return self.data.get("name")
 
     @property
-    def name_location(self) -> str:
+    def name_location(self) -> str | None:
         """Name location."""
         if self.location_city and self.location_state:
             return f"{self.name} ({self.location_city}, {self.location_state})"

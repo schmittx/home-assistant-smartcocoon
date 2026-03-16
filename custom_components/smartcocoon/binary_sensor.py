@@ -18,11 +18,11 @@ from . import SmartCocoonEntity
 from .const import CONF_FANS, CONF_SYSTEMS, DATA_COORDINATOR, DOMAIN
 
 
-@dataclass
+@dataclass(frozen=True)
 class SmartCocoonBinarySensorEntityDescription(BinarySensorEntityDescription):
     """Class to describe a SmartCocoon binary sensor entity."""
 
-    entity_category: str[EntityCategory] | None = EntityCategory.DIAGNOSTIC
+    entity_category: EntityCategory | None = EntityCategory.DIAGNOSTIC
 
 
 BINARY_SENSOR_DESCRIPTIONS: list[SmartCocoonBinarySensorEntityDescription] = [
