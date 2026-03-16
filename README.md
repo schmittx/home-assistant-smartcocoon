@@ -4,7 +4,7 @@ Custom component to allow control of [Smart Cocoon devices](https://mysmartcocoo
 
 ## Features
 - This is a small integration to allow basic control (mode and fan speed) via Home Assistant.
-- A `binary_sensor`, `fan`, and two `select` entities will be created for each booster fan.
+- A `binary_sensor`, `fan`, `number`, and `select` entities will be created for each booster fan.
 
 ## Install
 1. Ensure Home Assistant is updated to version 2026.3.0 or newer.
