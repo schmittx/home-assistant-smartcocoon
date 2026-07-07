@@ -1,7 +1,5 @@
 """Support for SmartCocoon binary sensor entities."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (

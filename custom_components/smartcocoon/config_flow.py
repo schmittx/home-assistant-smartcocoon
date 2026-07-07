@@ -1,4 +1,4 @@
-"""Adds config flow for SmartCocoon integration."""
+"""Adds config flow for the SmartCocoon integration."""
 
 import logging
 from types import MappingProxyType
@@ -173,11 +173,7 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if self.index == len(self.user_input[CONF_SYSTEMS]):
             self.index = 0
-            if self.show_advanced_options:
-                return await self.async_step_advanced()
-            return self.async_create_entry(
-                title=self.config_title, data=self.user_input
-            )
+            return await self.async_step_advanced()
 
         for system in self.response:
             if system.id == self.user_input[CONF_SYSTEMS][self.index]:
@@ -337,9 +333,7 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
                     self.index += 1
 
         if self.index == len(self.user_input[CONF_SYSTEMS]):
-            if self.show_advanced_options:
-                return await self.async_step_advanced()
-            return self.async_create_entry(title="", data=self.user_input)
+            return await self.async_step_advanced()
         if self.index == 0:
             self.user_input[CONF_FANS] = []
 

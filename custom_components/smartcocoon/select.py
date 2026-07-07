@@ -1,7 +1,5 @@
 """Support for SmartCocoon select entities."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription

@@ -1,7 +1,5 @@
 """The SmartCocoon integration."""
 
-from __future__ import annotations
-
 from asyncio import timeout
 from datetime import timedelta
 import logging
@@ -38,6 +36,7 @@ from .const import (
     ScanInterval,
     Timeout,
 )
+from .util import generate_device_identifier
 
 PLATFORMS = (
     Platform.BINARY_SENSOR,
@@ -56,7 +55,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     conf_systems = options.get(CONF_SYSTEMS, data.get(CONF_SYSTEMS, []))
     conf_fans = options.get(CONF_FANS, data.get(CONF_FANS, []))
-    conf_identifiers = [(DOMAIN, conf_id) for conf_id in conf_systems + conf_fans]
+    conf_identifiers = [
+        generate_device_identifier(conf_id) for conf_id in conf_systems + conf_fans
+    ]
 
     device_registry = dr.async_get(hass)
     device_entries = dr.async_entries_for_config_entry(
@@ -78,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         else None,
     )
 
-    async def async_update_data():
+    async def async_update_data() -> list[SmartCocoonSystem]:
         """Fetch data from API endpoint.
 
         This is the place to pre-process the data to lookup tables
@@ -96,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
                 f"{type(exception).__name__} while communicating with API: {exception}"
             ) from exception
 
-    coordinator = DataUpdateCoordinator(
+    coordinator = SmartCocoonDataUpdateCoordinator(
         hass=hass,
         logger=_LOGGER,
         name=f"SmartCocoon ({data[CONF_EMAIL]})",
@@ -138,12 +139,22 @@ async def async_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) 
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 
-class SmartCocoonEntity(CoordinatorEntity):
+class SmartCocoonDataUpdateCoordinator(DataUpdateCoordinator[list[SmartCocoonSystem]]):
+    """Class to manage fetching data from single endpoint."""
+
+    async def _async_update_data(self) -> list[SmartCocoonSystem]:
+        """Fetch the latest data from the source."""
+        if self.update_method is None:
+            raise NotImplementedError("Update method not implemented")
+        return await self.update_method()
+
+
+class SmartCocoonEntity(CoordinatorEntity[SmartCocoonDataUpdateCoordinator]):
     """Representation of a SmartCocoon entity."""
 
     def __init__(
         self,
-        coordinator: DataUpdateCoordinator,
+        coordinator: SmartCocoonDataUpdateCoordinator,
         system_id: int,
         room_id: int,
         fan_id: int,
@@ -160,8 +171,7 @@ class SmartCocoonEntity(CoordinatorEntity):
     @property
     def system(self) -> SmartCocoonSystem | None:
         """Return a SmartCocoonSystem object."""
-        data: list[SmartCocoonSystem] = self.coordinator.data  # pyright: ignore[reportAssignmentType]
-        systems = {system.id: system for system in data}
+        systems = {system.id: system for system in self.coordinator.data}
         return systems.get(self.system_id)
 
     @property
@@ -192,10 +202,10 @@ class SmartCocoonEntity(CoordinatorEntity):
 
         Implemented by platform classes.
         """
-        if self.fan and self.room:
+        if self.fan and self.fan.id and self.room:
             return dr.DeviceInfo(
                 configuration_url=CONFIGURATION_URL,
-                identifiers={(DOMAIN, str(self.fan.id))},
+                identifiers={generate_device_identifier(self.fan.id)},
                 manufacturer=DEVICE_MANUFACTURER,
                 model=self.fan.model_name,
                 name=self.fan.name,

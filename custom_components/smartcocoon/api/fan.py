@@ -1,7 +1,5 @@
 """Smart Cocoon API."""
 
-from __future__ import annotations
-
 from http import HTTPMethod
 import logging
 from typing import Any

@@ -1,7 +1,5 @@
 """Smart Cocoon API."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from .room import Room
