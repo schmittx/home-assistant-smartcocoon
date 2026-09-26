@@ -4,7 +4,7 @@ import logging
 from types import MappingProxyType
 from typing import Any
 
-import voluptuous as vol
+import probatio
 
 from homeassistant import config_entries
 from homeassistant.const import (
@@ -88,14 +88,14 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required(CONF_EMAIL): TextSelector(
+                    probatio.Required(CONF_EMAIL): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.EMAIL,
                         )
                     ),
-                    vol.Required(CONF_PASSWORD): TextSelector(
+                    probatio.Required(CONF_PASSWORD): TextSelector(
                         TextSelectorConfig(
                             type=TextSelectorType.PASSWORD,
                         )
@@ -140,9 +140,11 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="systems",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Optional(CONF_SYSTEMS, default=system_names): SelectSelector(
+                    probatio.Optional(
+                        CONF_SYSTEMS, default=system_names
+                    ): SelectSelector(
                         SelectSelectorConfig(
                             options=system_names,
                             multiple=True,
@@ -187,9 +189,11 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_show_form(
                     step_id="fans",
-                    data_schema=vol.Schema(
+                    data_schema=probatio.Schema(
                         {
-                            vol.Optional(CONF_FANS, default=fan_names): SelectSelector(
+                            probatio.Optional(
+                                CONF_FANS, default=fan_names
+                            ): SelectSelector(
                                 SelectSelectorConfig(
                                     options=fan_names,
                                     multiple=True,
@@ -218,12 +222,12 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="advanced",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_SAVE_RESPONSES, default=DEFAULT_SAVE_RESPONSES
                     ): BooleanSelector(),
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_SCAN_INTERVAL, default=ScanInterval.DEFAULT
                     ): NumberSelector(
                         NumberSelectorConfig(
@@ -233,7 +237,9 @@ class SmartCocoonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),
-                    vol.Optional(CONF_TIMEOUT, default=Timeout.DEFAULT): NumberSelector(
+                    probatio.Optional(
+                        CONF_TIMEOUT, default=Timeout.DEFAULT
+                    ): NumberSelector(
                         NumberSelectorConfig(
                             min=Timeout.MIN,
                             max=Timeout.MAX,
@@ -303,9 +309,11 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="systems",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Optional(CONF_SYSTEMS, default=conf_systems): SelectSelector(
+                    probatio.Optional(
+                        CONF_SYSTEMS, default=conf_systems
+                    ): SelectSelector(
                         SelectSelectorConfig(
                             options=system_names,
                             multiple=True,
@@ -351,9 +359,11 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
 
                 return self.async_show_form(
                     step_id="fans",
-                    data_schema=vol.Schema(
+                    data_schema=probatio.Schema(
                         {
-                            vol.Optional(CONF_FANS, default=conf_fans): SelectSelector(
+                            probatio.Optional(
+                                CONF_FANS, default=conf_fans
+                            ): SelectSelector(
                                 SelectSelectorConfig(
                                     options=fan_names,
                                     multiple=True,
@@ -390,12 +400,12 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="advanced",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_SAVE_RESPONSES, default=conf_save_responses
                     ): BooleanSelector(),
-                    vol.Optional(
+                    probatio.Optional(
                         CONF_SCAN_INTERVAL, default=conf_scan_interval
                     ): NumberSelector(
                         NumberSelectorConfig(
@@ -405,7 +415,9 @@ class SmartCocoonOptionsFlowHandler(config_entries.OptionsFlow):
                             unit_of_measurement=UnitOfTime.SECONDS,
                         )
                     ),
-                    vol.Optional(CONF_TIMEOUT, default=conf_timeout): NumberSelector(
+                    probatio.Optional(
+                        CONF_TIMEOUT, default=conf_timeout
+                    ): NumberSelector(
                         NumberSelectorConfig(
                             min=Timeout.MIN,
                             max=Timeout.MAX,
